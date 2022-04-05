@@ -1,36 +1,46 @@
-import { Component } from "react";
+import { lazy, Suspense } from "react";
+import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import AppHeader from "../appHeader/AppHeader";
-import RandomChar from "../randomChar/RandomChar";
-import CharList from "../charList/CharList";
-import CharInfo from "../charInfo/CharInfo";
-import decoration from '../../resources/img/vision.png';
+import Loading from "../loading/Loading";
+import SingleCharacterLayout from "../pages/singleCharacterLayout/SingleCharacterLayout";
+import SingleComicLayout from "../pages/singleComicLayout/SingleComicLayout";
+import SinglePage from "../pages/SinglePage";
 
-class App extends Component {
-    state = {
-        selectedChar: null
-    }
+const Page404 = lazy(() => import('../pages/Page404'));
+const MainPage = lazy(() => import('../pages/MainPage'));
+const ComicsPage = lazy(() => import('../pages/ComicsPage'));
+// const SingleComicPage = lazy(() => import('../pages/SingleComicPage'));
+// const SinglCharacterPage = lazy(() => import('../pages/singlCharacterPage/SinglCharacterPage.js'));
 
-    onCharSelected = (id) => {
-        this.setState({
-            selectedChar: id
-        })
-    }
-
-    render() {
-        return (
-            <div className="app">
-                <AppHeader/>
-                <main>
-                    <RandomChar/>
-                    <div className="char__content">
-                        <CharList onCharSelected={this.onCharSelected}/>
-                        <CharInfo charId={this.state.selectedChar} />
-                    </div>
-                    <img className="bg-decoration" src={decoration} alt="vision"/>
-                </main>
-            </div>
-        )
-    }
-}
+const App = () => {
+  return (
+    <div className="app">
+      <Router>
+        <AppHeader />
+        <main>
+          <Suspense fallback={<Loading/>}>
+            <Switch>
+              <Route exact path="/">
+                <MainPage />
+              </Route>
+              <Route exact path="/comics">
+                <ComicsPage />
+              </Route>
+              <Route exact path="/comics/:id">
+                <SinglePage Component={SingleComicLayout} pageType='comic'/>
+              </Route>
+              <Route exact path="/characters/:id">
+                <SinglePage Component={SingleCharacterLayout} pageType='character'/>
+              </Route>
+              <Route path="*">
+                <Page404 />
+              </Route>
+            </Switch>
+          </Suspense>
+        </main>
+      </Router>
+    </div>
+  );
+};
 
 export default App;

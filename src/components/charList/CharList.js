@@ -1,74 +1,127 @@
 import "./charList.scss";
-import MarvelService from "../../services/MarvelService";
-import { Component } from "react";
-import Char from "../char/Char";
+import PropTypes from "prop-types";
+import useMarvelService from "../../services/MarvelService";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Loading from "../loading/Loading";
 import Error from "../error/Error";
 
-class CharList extends Component {
-  state = {
-    chars: [],
-    loading: true,
-    error: false,
-  };
-
-  marvelService = new MarvelService();
-
-  componentDidMount() {
-    this.getAllChar();
+const setContent = (process, Component, newItemLoading) => {
+  switch (process) {
+    case "waiting":
+      return <Loading />;
+    case "loading":
+      return newItemLoading ? <Component /> : <Loading />;
+    case "confirmed":
+      return <Component />;
+    case "error":
+      return <Error />;
+    default:
+      break;
   }
+};
 
-  onCharsLoading = () => {
-    this.setState({
-      loading: true,
-    });    
-  }
+const CharList = (props) => {
+  const [charList, setCharList] = useState([]);
+  const [newItemLoading, setNewItemLoading] = useState(false);
+  const [offset, setOffset] = useState(210);
+  const [charEnded, setCharEnded] = useState(false);
 
-  onCharsLoader = (chars) => {
-    this.setState({
-      chars,
-      loading: false,
-    });
+  const { process, getAllCharacters, setProcess} = useMarvelService();
+
+  useEffect(() => {
+    onRequest(offset, true);
+    // eslint-disable-next-line
+  }, []);
+
+  const onRequest = (offset, initial) => {
+    initial ? setNewItemLoading(false) : setNewItemLoading(true)
+    getAllCharacters(offset)
+      .then(onCharListLoaded)
+      .then(() => setProcess('confirmed'))
   };
 
-  onError = () => {
-    this.setState({
-      error: true,
-      loading: false,
-    });
+  const onCharListLoaded = (newCharList) => {
+    let ended = false;
+    if (newCharList.length < 9) {
+      ended = true;
+    }
+
+    setCharList((charList) => [...charList, ...newCharList]);
+    setNewItemLoading(false);
+    setOffset((offset) => offset + 9);
+    setCharEnded(ended);
   };
 
-  getAllChar = () => {
-    this.onCharsLoading()
-    this.marvelService
-      .getAllCharacters()
-      .then(this.onCharsLoader)
-      .catch(this.onError);
-  };
+  const itemRefs = useRef([]);
 
-    render() {
-      
-      const { chars, loading, error, } = this.state
-      
-      const load = loading ? <Loading /> : null;
-      const err = error ? <Error /> : null;
-
-    return (
-      <div className="char__list">
-          {load}
-          {err}
-        <ul className="char__grid">
-
-          {chars.map(char => ( 
-            <Char key={char.id} onCharSelected={this.props.onCharSelected} char={char} />
-          ))}
-        </ul>
-        <button className="button button__main button__long">
-          <div className="inner">load more</div>
-        </button>
-      </div>
+  const focusOnItem = (id) => {
+    itemRefs.current.forEach((item) =>
+      item.classList.remove("char__item_selected")
     );
+    itemRefs.current[id].classList.add("char__item_selected");
+    itemRefs.current[id].focus();
+  };
+
+  function renderItems(arr) {
+    const items = arr.map((item, i) => {
+      let imgStyle = { objectFit: "cover" };
+      if (
+        item.thumbnail ===
+        "http://i.annihil.us/u/prod/marvel/i/mg/b/40/image_not_available.jpg"
+      ) {
+        imgStyle = { objectFit: "unset" };
+      }
+
+
+      return (
+        <li
+          className="char__item"
+          tabIndex={0}
+          ref={(el) => (itemRefs.current[i] = el)}
+          key={item.id}
+          onClick={() => {
+            props.onCharSelected(item.id);
+            focusOnItem(i);
+          }}
+          onKeyPress={(e) => {
+            if (e.key === " " || e.key === "Enter") {
+              props.onCharSelected(item.id);
+              focusOnItem(i);
+            }
+          }}
+        >
+          <img src={item.thumbnail} alt={item.name} style={imgStyle} />
+          <div className="char__name">{item.name}</div>
+        </li>
+      );
+    });
+
+    
+    return <ul className="char__grid">{items}</ul>;
   }
-}
+
+  const elements = useMemo(() => {
+    return setContent(process, () => renderItems(charList), newItemLoading)
+    // eslint-disable-next-line
+  }, [process])
+
+  return (
+    <div className="char__list">
+      {elements}
+      <button
+        className="button button__main button__long"
+        disabled={newItemLoading}
+        style={{ display: charEnded ? "none" : "block" }}
+        onClick={() => onRequest(offset)}
+      >
+        <div className="inner">load more</div>
+      </button>
+    </div>
+  );
+};
+
+CharList.propTypes = {
+  onCharSelected: PropTypes.func.isRequired,
+};
 
 export default CharList;
